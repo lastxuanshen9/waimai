@@ -3,7 +3,6 @@ package com.sky.service.impl;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
 import com.sky.constant.MessageConstant;
-import com.sky.constant.PasswordConstant;
 import com.sky.constant.StatusConstant;
 import com.sky.context.BaseContext;
 import com.sky.dto.EmployeeDTO;
@@ -103,25 +102,24 @@ public class EmployeeServiceImpl implements EmployeeService {
             return new PageResult(total,records);
         }
 
-    @Override
-    public void startOrStop(Integer status, long id) {
-        
-    }
-
-
     /**
      * 启用禁用员工账号
      * @param status
      * @param id
      */
-    public void startOrStop(Integer status, Long id) {
+    @Override
+    public void startOrStop(Integer status, long id) {
         //update employee set status = ? where id = ?
         Employee employee = new Employee();
         employee.setStatus(status);
         employee.setId(id);
 
         employeeMapper.update(employee);
-}
+    }
+
+
+
+
     }
 
 
