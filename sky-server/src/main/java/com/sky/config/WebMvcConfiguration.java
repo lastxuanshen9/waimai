@@ -40,6 +40,10 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
         registry.addInterceptor(jwtTokenAdminInterceptor)
                 .addPathPatterns("/admin/**")
                 .excludePathPatterns("/admin/employee/login");
+        registry.addInterceptor(jwtTokenAdminInterceptor)
+                .addPathPatterns("user/**")
+                .excludePathPatterns("/**/**/login")
+                .excludePathPatterns("/user/shop/status");
     }
 
     /**
@@ -102,4 +106,6 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
         //将自己的消息转化加入容器中
         converters.add(0,converter);
     }
+
+
 }
