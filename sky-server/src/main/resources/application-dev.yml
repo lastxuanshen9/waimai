@@ -19,3 +19,10 @@ sky:
   wechat:
     appid: wx323d667c68d72331
     secret: 2406bebfbe9dd4604e346dfd0fc7a9e5
+    mchid: 1601085087
+    mchSerialNo: 2F7F9F3F9E6B4E3B9C3E3F2F9F3F2F9F3F2F9F3F
+    privateKeyFilePath: /Users/zhengwei/Desktop/WeChatPay/apiclient_key.pem
+    apiV3Key: 1234567890123456789012345678901234567890
+    weChatPayCertFilePath: /Users/zhengwei/Desktop/WeChatPay/wechatpay_2F7F9F3F9E6B4E3B9C3E3F2F9F3F2F9F3F2F9F3F.pem
+    notifyUrl: http://localhost:8080/api/wechat/pay/notify
+    refundNotifyUrl: http://localhost:8080/api/wechat/refund/notify
