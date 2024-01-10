@@ -1,5 +1,6 @@
 package com.sky.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
@@ -19,6 +20,7 @@ import com.sky.vo.OrderPaymentVO;
 import com.sky.vo.OrderStatisticsVO;
 import com.sky.vo.OrderSubmitVO;
 import com.sky.vo.OrderVO;
+import com.sky.websocket.WebSocketServer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.sky.entity.Orders.TO_BE_CONFIRMED;
@@ -51,6 +55,8 @@ public class OrderServiceImpl implements OrderService {
     private WeChatPayUtil weChatPayUtil;
     @Autowired
     private UserMapper userMapper;
+    @Autowired
+    private WebSocketServer webSocketServer;
 
 
     /**
@@ -79,7 +85,7 @@ public class OrderServiceImpl implements OrderService {
 
         //构造订单数据
         Orders order = new Orders();
-        BeanUtils.copyProperties(ordersSubmitDTO,order);
+        BeanUtils.copyProperties(ordersSubmitDTO, order);
         order.setPhone(addressBook.getPhone());
         order.setAddress(addressBook.getDetail());
         order.setConsignee(addressBook.getConsignee());
@@ -117,7 +123,6 @@ public class OrderServiceImpl implements OrderService {
 
         return orderSubmitVO;
     }
-
 
 
     /**
@@ -177,6 +182,7 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * 用户取消订单
+     *
      * @param id
      */
     public void userCancelById(Long id) throws Exception {
@@ -184,19 +190,19 @@ public class OrderServiceImpl implements OrderService {
         Orders ordersDB = orderMapper.getById(id);
 
         //校验订单是否存在
-        if(ordersDB == null) {
+        if (ordersDB == null) {
             throw new OrderBusinessException(MessageConstant.ORDER_NOT_FOUND);
         }
 
         //订单状态 1待付款 2待接单 3已接单 4派送中 5已完成 6已取消
-        if(ordersDB.getStatus() > 2) {
+        if (ordersDB.getStatus() > 2) {
             throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
         }
         Orders orders = new Orders();
         orders.setId(ordersDB.getId());
 
         // 订单处于待接单状态下取消，需要进行退款
-        if(ordersDB.getStatus().equals(TO_BE_CONFIRMED)) {
+        if (ordersDB.getStatus().equals(TO_BE_CONFIRMED)) {
             //调用微信支付退款接口
             weChatPayUtil.refund(
                     ordersDB.getNumber(),//商户订单号
@@ -230,7 +236,7 @@ public class OrderServiceImpl implements OrderService {
         List<ShoppingCart> shoppingCartList = orderDetailList.stream().map(x -> {
             ShoppingCart shoppingCart = new ShoppingCart();
 
-        //将订单详情对象的属性复制到购物车对象中
+            //将订单详情对象的属性复制到购物车对象中
             BeanUtils.copyProperties(x, shoppingCart, "id");
             shoppingCart.setUserId(userId);
             shoppingCart.setCreateTime(LocalDateTime.now());
@@ -303,12 +309,12 @@ public class OrderServiceImpl implements OrderService {
         Orders ordersDB = orderMapper.getById(ordersRejectionDTO.getId());
 
         // 订单只有存在且状态为2（待接单）才可以拒单
-        if(ordersDB == null || !ordersDB.getStatus().equals(Orders.TO_BE_CONFIRMED)) {
+        if (ordersDB == null || !ordersDB.getStatus().equals(Orders.TO_BE_CONFIRMED)) {
             throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
         }
         //支付状态
         Integer payStatus = ordersDB.getPayStatus();
-        if(payStatus == Orders.PAID) {
+        if (payStatus == Orders.PAID) {
             //用户已支付，需要退款
             String refund = weChatPayUtil.refund(
                     ordersDB.getNumber(),//商户订单号
@@ -340,7 +346,7 @@ public class OrderServiceImpl implements OrderService {
 
         //支付状态
         Integer payStatus = ordersDB.getPayStatus();
-        if(payStatus == 1) {
+        if (payStatus == 1) {
             //用户已支付，需要退款
             String refund = weChatPayUtil.refund(
                     ordersDB.getNumber(),//商户订单号
@@ -372,7 +378,7 @@ public class OrderServiceImpl implements OrderService {
         Orders ordersDB = orderMapper.getById(id);
 
         // 订单只有存在且状态为3（已接单）才可以派送
-        if(ordersDB == null || !ordersDB.getStatus().equals(Orders.CONFIRMED)) {
+        if (ordersDB == null || !ordersDB.getStatus().equals(Orders.CONFIRMED)) {
             throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
         }
         Orders orders = new Orders();
@@ -384,6 +390,7 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * 完成订单
+     *
      * @param id
      */
     public void complete(Long id) {
@@ -391,7 +398,7 @@ public class OrderServiceImpl implements OrderService {
         Orders ordersDB = orderMapper.getById(id);
 
         // 订单只有存在且状态为4（派送中）才可以完成
-        if(ordersDB == null || !ordersDB.getStatus().equals(Orders.DELIVERY_IN_PROGRESS)) {
+        if (ordersDB == null || !ordersDB.getStatus().equals(Orders.DELIVERY_IN_PROGRESS)) {
             throw new OrderBusinessException(MessageConstant.ORDER_STATUS_ERROR);
         }
         Orders orders = new Orders();
@@ -407,8 +414,8 @@ public class OrderServiceImpl implements OrderService {
         List<OrderVO> orderVOList = new ArrayList<>();
 
         List<Orders> ordersList = page.getResult();
-        if(!CollectionUtils.isEmpty(ordersList)) {
-            for(Orders orders : ordersList) {
+        if (!CollectionUtils.isEmpty(ordersList)) {
+            for (Orders orders : ordersList) {
                 // 将共同字段复制到OrderVO
                 OrderVO orderVO = new OrderVO();
                 BeanUtils.copyProperties(orders, orderVO);
@@ -443,6 +450,7 @@ public class OrderServiceImpl implements OrderService {
         // 将该订单对应的所有菜品信息拼接在一起
         return String.join("", orderDishList);
     }
+
     /**
      * 订单支付
      *
@@ -491,8 +499,18 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         orderMapper.update(orders);
+
+
+        //通过websocket向客户端浏览器推送消息 type orderId content
+        Map map = new HashMap();
+        map.put("type", 1);//1表示来单提醒，2表示客户催单
+        map.put("orderId", ordersDB.getId());
+        map.put("content", "订单号：" + outTradeNo);
+
+        String json = JSON.toJSONString(map);
+        webSocketServer.sendToAllClient(json);
     }
-    }
+}
 
 
 
